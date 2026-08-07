@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0056B3">
+    <title>CitaMob - Ônibus</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- Google Maps (API de Lugares) — troque SUBSTITUA-PELA-SUA-CHAVE pela sua chave real -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=SUBSTITUA-PELA-SUA-CHAVE&libraries=places,geometry&loading=async" async defer></script>
+    
+    <!-- Script do Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-app-pub-3362553991120944" crossorigin="anonymous"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --azul-principal: #0056B3; --azul-escuro: #004494; --laranja: #FF7A00;
+            --verde-pix: #32BCAD; --branco: #FFFFFF; --cinza-fundo: #F5F7FA;
+            --cinza-borda: #E0E6ED; --cinza-texto: #6B7280; --verde: #10B981; --vermelho: #EF4444;
+        }
+        body { background: var(--cinza-fundo); color: #1F2937; }
+
+        /* TELA DE ASSINATURA */
+        .tela-assinatura {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--cinza-fundo); display: flex; align-items: center; justify-content: center;
+            padding: 1.5rem 1rem; z-index: 9999; transition: opacity 0.3s ease; overflow-y: auto;
+        }
+        .tela-assinatura.oculta { display: none; }
+
+        .caixa-assinatura {
+            background: var(--branco); border-radius: 16px; padding: 1.5rem; max-width: 420px; width: 100%;
+            text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .titulo-assinatura { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .subtitulo-assinatura { font-size: 0.95rem; color: var(--cinza-texto); margin-bottom: 0.8rem; }
+        .valor-assinatura { font-size: 2rem; font-weight: 700; color: var(--verde-pix); margin: 0.3rem 0; }
+        .periodo-assinatura { font-size: 0.95rem; color: var(--cinza-texto); margin-bottom: 1rem; }
+
+        .area-qrcode {
+            background: var(--branco); border: 2px solid var(--cinza-borda); border-radius: 12px;
+            padding: 1rem; margin: 1rem auto; display: inline-block;
+        }
+        #qrcode { width: 170px; height: 170px; display: block; }
+        .codigo-copia {
+            background: #F9FAFB; border: 1px solid var(--cinza-borda); border-radius: 8px;
+            padding: 0.7rem; margin: 0.8rem 0; font-size: 0.7rem; word-break: break-all;
+            color: #374151; font-family: monospace; text-align: left; max-height: 70px; overflow-y: auto;
+        }
+        .btn-copiar {
+            background: var(--verde-pix); color: white; border: none; padding: 0.6rem 1rem;
+            border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 1.2rem; width: 100%;
+        }
+        .btn-copiar:hover { background: #0D9488; }
+
+        .divisor { border-top: 1px solid var(--cinza-borda); margin: 1.2rem 0; padding-top: 1.2rem; }
+        .passo { text-align: left; font-size: 0.85rem; color: #374151; margin-bottom: 0.6rem; display: flex; gap: 0.5rem; }
+        .passo b { color: var(--azul-principal); }
+
+        .btn-email {
+            width: 100%; background: var(--azul-principal); color: var(--branco); border: none;
+            padding: 0.9rem; border-radius: 10px; font-size: 1rem; font-weight: 700;
+            cursor: pointer; margin-bottom: 1rem; text-decoration: none; display: block;
+        }
+        .btn-email:hover { background: var(--azul-escuro); }
+
+        .campo-codigo {
+            width: 100%; padding: 0.8rem; border: 1px solid var(--cinza-borda); border-radius: 8px;
+            font-size: 1rem; text-align: center; text-transform: uppercase; margin-bottom: 0.6rem;
+        }
+        .btn-entrar {
+            width: 100%; background: var(--verde); color: white; border: none; padding: 0.9rem;
+            border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+        }
+        .btn-entrar:hover { background: #0DA271; }
+        .msg-codigo { font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2rem; }
+        .msg-codigo.erro { color: var(--vermelho); }
+        .msg-codigo.sucesso { color: var(--verde); }
+
+        .link-admin {
+            display: block; margin-top: 1.5rem; font-size: 0.75rem; color: var(--cinza-texto);
+            text-decoration: none;
+        }
+
+        /* PAINEL ADMIN */
+        .painel-admin {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--cinza-fundo);
+            display: none; align-items: center; justify-content: center; z-index: 10000; padding: 1.5rem;
+        }
+        .painel-admin.aberto { display: flex; }
+        .caixa-admin {
+            background: var(--branco); border-radius: 16px; padding: 1.5rem; max-width: 420px; width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .caixa-admin h2 { margin-bottom: 1rem; }
+        .codigo-atual {
+            background: #EFF6FF; border: 2px dashed var(--azul-principal); border-radius: 10px;
+            padding: 1rem; text-align: center; font-size: 1.6rem; font-weight: 700; color: var(--azul-principal);
+            margin-bottom: 1rem; letter-spacing: 2px;
+        }
+        .btn-fechar-admin {
+            width: 100%; background: var(--cinza-borda); color: #374151; border: none;
+            padding: 0.7rem; border-radius: 8px; cursor: pointer; margin-top: 1rem;
+        }
+
+        /* CONTEÚDO DO SITE */
+        .conteudo-citamob { display: none; padding-bottom: 85px; }
+        .conteudo-citamob.visivel { display: block; }
+
+        .cabecalho { background: var(--azul-principal); color: var(--branco); padding: 1.2rem 5%; text-align: center; }
+        .logo { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.2rem; }
+        .subtitulo-cabecalho { font-size: 0.9rem; opacity: 0.9; }
+
+        .area-busca { padding: 1rem 5%; background: var(--branco); border-bottom: 1px solid var(--cinza-borda); }
+        .campo-busca { width: 100%; padding: 0.9rem 1.2rem; border: 1px solid var(--cinza-borda); border-radius: 25px; font-size: 1rem; outline: none; }
+        .campo-busca:focus { border-color: var(--azul-principal); }
+
+        .conteudo { padding: 1.2rem 5%; }
+        .titulo-secao { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+
+        .cartao-linha { background: var(--branco); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; border-left: 4px solid var(--azul-principal); }
+        .codigo-linha { font-weight: 700; font-size: 1.2rem; color: var(--azul-principal); margin-bottom: 0.2rem; }
+        .nome-linha { font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; }
+        .destino-linha { font-size: 0.85rem; color: var(--cinza-texto); margin-bottom: 0.8rem; }
+        .previsao { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+        .minutos { font-weight: 700; font-size: 1.1rem; color: var(--verde); }
+        .minutos.atrasado { color: var(--vermelho); }
+        .minutos.chegando { color: var(--laranja); }
+
+        .ponto-proximo { background: var(--branco); border-radius: 12px; padding: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 1rem; border: 1px solid var(--cinza-borda); }
+        .nome-ponto { flex: 1; font-weight: 500; }
+        .distancia { font-size: 0.85rem; color: var(--cinza-texto); }
+
+        .menu-inferior { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--branco); border-top: 1px solid var(--cinza-borda); display: flex; justify-content: space-around; padding: 0.7rem 0; z-index: 100; }
+        .item-menu { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; color: var(--cinza-texto); cursor: pointer; }
+        .item-menu.ativo { color: var(--azul-principal); font-weight: 500; }
+        .item-menu span { font-size: 1.5rem; }
+        .item-menu p { font-size: 0.75rem; }
+
+        .aviso-dados-simulados {
+            background: #FFFBEB; color: #92400E; font-size: 0.75rem; padding: 0.6rem 1rem;
+            text-align: center;
+        }
+
+        /* BLOQUEIO DE CONTEÚDO SEM ASSINATURA ATIVA */
+        .area-bloqueavel { position: relative; }
+        .area-bloqueavel.bloqueado .conteudo-real {
+            filter: blur(6px);
+            pointer-events: none;
+            user-select: none;
+        }
+        .overlay-cadeado {
+            display: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 0.8rem; z-index: 10; text-align: center; padding: 1rem;
+        }
+        .area-bloqueavel.bloqueado .overlay-cadeado { display: flex; }
+        .btn-ir-assinar {
+            background: var(--azul-principal); color: white; border: none; padding: 0.8rem 1.4rem;
+            border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.95rem;
+        }
+        .btn-ir-assinar:hover { background: var(--azul-escuro); }
+    </style>
+</head>
+<body>
+
+    <!-- PAINEL ADMIN (SÓ O DONO VÊ) -->
+    <div id="painelAdmin" class="painel-admin">
+        <div class="caixa-admin">
+            <h2>🔐 Painel do Administrador</h2>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1rem;">
+                <div style="background:#f8fafc; border-radius:10px; padding:10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--cinza-texto);">Total de visitas</div>
+                    <div id="statTotalVisitas" style="font-size:1.3rem; font-weight:700; color:var(--azul-principal);">0</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:10px; padding:10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--cinza-texto);">Visitas hoje</div>
+                    <div id="statVisitasHoje" style="font-size:1.3rem; font-weight:700; color:var(--azul-principal);">0</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:10px; padding:10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--cinza-texto);">Testes iniciados</div>
+                    <div id="statTestes" style="font-size:1.3rem; font-weight:700; color:var(--azul-principal);">0</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:10px; padding:10px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--cinza-texto);">Assinantes confirmados</div>
+                    <div id="statAssinantes" style="font-size:1.3rem; font-weight:700; color:var(--azul-principal);">0</div>
+                </div>
+            </div>
+
+            <p style="font-size:0.9rem; color:var(--cinza-texto); margin-bottom:0.8rem;">
+                Código de acesso válido no momento — envie este código por e-mail
+                somente para quem você confirmou o pagamento no seu banco:
+            </p>
+            <div class="codigo-atual" id="codigoAtualExibido">—</div>
+
+            <label style="font-size:0.85rem; display:block; margin-bottom:0.4rem;">Trocar o código (opcional):</label>
+            <input type="text" id="novoCodigoInput" class="campo-codigo" placeholder="NOVO CÓDIGO">
+            <button class="btn-entrar" onclick="salvarNovoCodigo()">Salvar novo código</button>
+
+            <button class="btn-fechar-admin" onclick="fecharAdmin()">Fechar painel</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL (sempre visível) -->
+    <div id="conteudoCitamob" class="conteudo-citamob visivel">
+        <div class="cabecalho">
+            <div class="logo">🚌 CitaMob</div>
+            <div class="subtitulo-cabecalho">Ônibus em tempo real</div>
+        </div>
+
+        <div class="aviso-dados-simulados">
+            ⚠️ As linhas e horários abaixo são dados de exemplo (simulados), ainda não conectados a uma fonte de dados real.
+        </div>
+
+        <!-- Bloco de Anúncio Google AdSense -->
+        <div style="background: var(--branco); padding: 0.5rem; text-align: center; border-bottom: 1px solid var(--cinza-borda);">
+            <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-app-pub-3362553991120944"
+                 crossorigin="anonymous"></script>
+            <!-- CitaMob_Banner -->
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-app-pub-3362553991120944"
+                 data-ad-slot="8679219724"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>
+                 (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
+        </div>
+
+        <div class="area-busca">
+            <input type="text" class="campo-busca" placeholder="Buscar linha, ponto ou destino..." id="busca">
+        </div>
+
+        <div class="conteudo">
+            <div id="areaBloqueavel" class="area-bloqueavel bloqueado">
+                <div class="overlay-cadeado">
+                    <div style="font-size:2.5rem;">🔒</div>
+                    <div style="font-weight:700; font-size:1.05rem;">Assinatura necessária</div>
+                    <div style="font-size:0.85rem; color:var(--cinza-texto); max-width:260px;">Assine por R$ 1,00/mês para ver as linhas e pontos de ônibus.</div>
+                    <button class="btn-ir-assinar" onclick="document.getElementById('secaoAssinatura').scrollIntoView({behavior:'smooth'})">Assinar agora</button>
+                </div>
+
+                <div class="conteudo-real">
+                    <h3 class="titulo-secao">📍 Linhas que passam por aqui</h3>
+
+                    <div class="cartao-linha">
+                        <div class="codigo-linha">012 - CENTRO / VIA EXPRESSA</div>
+                        <div class="nome-linha">Linha Centro ↔ Terminal Parangaba</div>
+                        <div class="destino-linha">Sentido: Parangaba</div>
+                        <div class="previsao">
+                            <span>Próximo:</span>
+                            <span class="minutos chegando">Chegando em 02 min</span>
+                        </div>
+                        <div class="previsao" style="margin-top:0.5rem;">
+                            <span>Seguinte:</span>
+                            <span class="minutos">08 min</span>
+                        </div>
+                    </div>
+
+                    <div class="cartao-linha">
+                        <div class="codigo-linha">304 - MUCURIPE / BEIRA MAR</div>
+                        <div class="nome-linha">Linha Mucuripe ↔ Praia de Iracema</div>
+                        <div class="destino-linha">Sentido: Praia de Iracema</div>
+                        <div class="previsao">
+                            <span>Próximo:</span>
+                            <span class="minutos">05 min</span>
+                        </div>
+                        <div class="previsao" style="margin-top:0.5rem;">
+                            <span>Seguinte:</span>
+                            <span class="minutos atrasado">15 min (atrasado)</span>
+                        </div>
+                    </div>
+
+                    <h3 class="titulo-secao" style="margin-top:2rem;">🛑 Pontos próximos (reais)</h3>
+                    <button class="btn-ir-assinar" id="btnBuscarPontos" style="width:100%; margin-bottom:0.8rem;">📍 Buscar pontos de ônibus perto de mim</button>
+                    <div id="listaPontos">
+                        <p style="font-size:0.85rem; color:var(--cinza-texto); text-align:center;">Toque no botão acima para localizar pontos reais.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE ASSINATURA (parte de baixo da página) -->
+            <div id="secaoAssinatura" class="caixa-assinatura" style="margin-top:2rem;">
+                <h1 class="titulo-assinatura">💳 Assinatura CitaMob</h1>
+                <p class="subtitulo-assinatura">Obrigatória para usar o app:</p>
+                <div class="valor-assinatura">R$ 1,00</div>
+                <div class="periodo-assinatura">30 dias de apoio</div>
+
+                <div class="area-qrcode">
+                    <canvas id="qrcode"></canvas>
+                </div>
+                <p style="font-size:0.85rem; color:var(--cinza-texto);">Aponte a câmera do banco ou copie o código:</p>
+                <div id="codigoPix" class="codigo-copia">Carregando...</div>
+                <button class="btn-copiar" onclick="copiarCodigo()">📋 Copiar Código PIX</button>
+
+                <div class="divisor">
+                    <div class="passo"><b>1.</b> Pague o Pix acima.</div>
+                    <div class="passo"><b>2.</b> Envie o comprovante por e-mail (botão abaixo).</div>
+                    <div class="passo"><b>3.</b> Você recebe o código de acesso por e-mail em resposta.</div>
+                    <div class="passo"><b>4.</b> Digite o código aqui embaixo pra confirmar.</div>
+
+                    <a id="btnEmailComprovante" class="btn-email" href="#">✉️ Enviar comprovante por e-mail</a>
+
+                    <input type="text" id="campoCodigo" class="campo-codigo" placeholder="CÓDIGO DE ACESSO" maxlength="20">
+                    <button class="btn-entrar" onclick="tentarEntrar()">Confirmar código</button>
+                    <div id="msgCodigo" class="msg-codigo"></div>
+                </div>
+
+                <a href="#" class="link-admin" onclick="abrirAdmin(event)">admin</a>
+            </div>
+        </div>
+
+        <div class="menu-inferior">
+            <div class="item-menu ativo"><span>🏠</span><p>Linhas</p></div>
+            <div class="item-menu"><span>🛑</span><p>Pontos</p></div>
+            <div class="item-menu"><span>🗺️</span><p>Mapa</p></div>
+            <div class="item-menu"><span>⚙️</span><p>Ajustes</p></div>
+        </div>
+    </div>
+
+<script>
+    /* ============================================================ */
+    /* Configuração                                                 */
+    /* ============================================================ */
+    const CONFIG = {
+        chavePix: "nandonascimento122@gmail.com",
+        cidade: "Brasil",
+        valor: 1.00,
+        diasValidade: 30,
+        diasTesteGratis: 3,
+        emailDono: "nandonascimento122@gmail.com",
+        senhaAdmin: "7",
+    };
+
+    // URL do backend (Cloudflare Workers) — troque pela URL real depois de publicar o Worker
+    const BACKEND_URL = "https://SUBSTITUA-PELA-URL-DO-SEU-WORKER.workers.dev";
+
+    let codigoPixCompleto = "";
+
+    function registrarVisita() {
+        if (sessionStorage.getItem('citamob_visita_registrada')) return;
+        sessionStorage.setItem('citamob_visita_registrada', 'sim');
+
+        fetch(BACKEND_URL + '/visita', { method: 'POST' }).catch(() => {});
+    }
+
+    async function atualizarEstatisticasAdmin() {
+        const els = {
+            total: document.getElementById('statTotalVisitas'),
+            hoje: document.getElementById('statVisitasHoje'),
+            testes: document.getElementById('statTestes'),
+            assinantes: document.getElementById('statAssinantes'),
+        };
+        Object.values(els).forEach(el => el.textContent = '...');
+
+        try {
+            const resp = await fetch(`${BACKEND_URL}/admin/stats?senha=${encodeURIComponent(CONFIG.senhaAdmin)}`);
+            const dados = await resp.json();
+            if (dados.erro) throw new Error(dados.erro);
+
+            els.total.textContent = dados.total;
+            els.hoje.textContent = dados.hoje;
+            els.testes.textContent = dados.testes;
+            els.assinantes.textContent = dados.assinantes;
+            document.getElementById('codigoAtualExibido').textContent = dados.codigoAtual;
+        } catch (erro) {
+            Object.values(els).forEach(el => el.textContent = '—');
+            alert('⚠️ Não foi possível carregar as estatísticas do servidor.');
+        }
+    }
+
+    window.addEventListener('load', () => {
+        gerarCodigoPix();
+        montarLinkEmail();
+        registrarVisita();
+        verificarAcessoSalvo();
+    });
+
+    function gerarCodigoPix() {
+        const valor = CONFIG.valor.toFixed(2);
+        codigoPixCompleto = `00020126580014br.gov.bcb.pix0136${CONFIG.chavePix}0220Assinatura Mensal5204000053039865802BR5925CitaMob6009${CONFIG.cidade}620705036304${valor.replace('.', '')}`;
+        document.getElementById('codigoPix').textContent = codigoPixCompleto;
+
+        QRCode.toCanvas(document.getElementById('qrcode'), codigoPixCompleto, {
+            width: 170, margin: 2, color: { dark: '#000000', light: '#ffffff' }
+        }, function (erro) { if (erro) console.error(erro); });
+    }
+
+    function montarLinkEmail() {
+        const assunto = encodeURIComponent("Comprovante - Assinatura CitaMob");
+        const corpo = encodeURIComponent(
+            "Olá! Segue em anexo o comprovante do meu pagamento de R$ 1,00 via Pix.\n\n" +
+            "Por favor, me envie o código de acesso.\n\n" +
+            "(Não esqueça de anexar o print/comprovante antes de enviar)"
+        );
+        document.getElementById('btnEmailComprovante').href =
+            `mailto:${CONFIG.emailDono}?subject=${assunto}&body=${corpo}`;
+    }
+
+    function copiarCodigo() {
+        navigator.clipboard.writeText(codigoPixCompleto)
+            .then(() => alert("✅ Código PIX copiado!"))
+            .catch(() => alert("❌ Copie manualmente o código acima."));
+    }
+
+    async function tentarEntrar() {
+        const digitado = document.getElementById('campoCodigo').value.trim().toUpperCase();
+        const msg = document.getElementById('msgCodigo');
+
+        if (!digitado) {
+            msg.textContent = "Digite o código que você recebeu por e-mail.";
+            msg.className = "msg-codigo erro";
+            return;
+        }
+
+        msg.textContent = "⏳ Verificando...";
+        msg.className = "msg-codigo";
+
+        try {
+            const resp = await fetch(BACKEND_URL + '/confirmar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo: digitado }),
+            });
+            const dados = await resp.json();
+
+            if (dados.sucesso) {
+                localStorage.setItem('citamob_token_acesso', dados.token);
+                localStorage.setItem('citamob_token_valido_ate', dados.validoAte);
+                msg.textContent = "✅ Código correto! Liberando...";
+                msg.className = "msg-codigo sucesso";
+                setTimeout(liberarAcesso, 600);
+            } else {
+                msg.textContent = "❌ " + (dados.erro || "Código incorreto.");
+                msg.className = "msg-codigo erro";
+            }
+        } catch (erro) {
+            msg.textContent = "⚠️ Não foi possível conectar ao servidor.";
+            msg.className = "msg-codigo erro";
+        }
+    }
+
+    async function verificarAcessoSalvo() {
+        const token = localStorage.getItem('citamob_token_acesso');
+        if (token) {
+            try {
+                const resp = await fetch(`${BACKEND_URL}/status?token=${encodeURIComponent(token)}`);
+                const dados = await resp.json();
+                if (dados.ativo) {
+                    liberarAcesso();
+                    return;
+                } else {
+                    localStorage.removeItem('citamob_token_acesso');
+                    localStorage.removeItem('citamob_token_valido_ate');
+                }
+            } catch (erro) {
+                const validoAte = parseInt(localStorage.getItem('citamob_token_valido_ate') || '0', 10);
+                if (validoAte && Date.now() < validoAte) {
+                    liberarAcesso();
+                    return;
+                }
+            }
+        }
+
+        let inicioTeste = localStorage.getItem('citamob_teste_inicio');
+        if (!inicioTeste) {
+            inicioTeste = new Date().toISOString();
+            localStorage.setItem('citamob_teste_inicio', inicioTeste);
+            fetch(BACKEND_URL + '/teste', { method: 'POST' }).catch(() => {});
+        }
+        const diasTeste = (new Date() - new Date(inicioTeste)) / (1000 * 60 * 60 * 24);
+        if (diasTeste < CONFIG.diasTesteGratis) {
+            const diasRestantes = Math.ceil(CONFIG.diasTesteGratis - diasTeste);
+            document.getElementById('areaBloqueavel').classList.remove('bloqueado');
+            const avisoTeste = document.createElement('div');
+            avisoTeste.className = 'aviso-dados-simulados';
+            avisoTeste.style.background = '#eff6ff';
+            avisoTeste.style.color = 'var(--azul-principal)';
+            avisoTeste.textContent = `🎁 Teste grátis: ${diasRestantes} dia(s) restante(s).`;
+            document.querySelector('.area-busca').insertAdjacentElement('afterend', avisoTeste);
+        }
+    }
+
+    function liberarAcesso(dataLiberado) {
+        const dataInicio = dataLiberado ? new Date(dataLiberado) : new Date();
+        const dataFim = new Date(dataInicio);
+        dataFim.setDate(dataFim.getDate() + CONFIG.diasValidade);
+
+        document.getElementById('areaBloqueavel').classList.remove('bloqueado');
+
+        const msg = document.getElementById('msgCodigo');
+        msg.textContent = `✅ Assinatura ativa até ${dataFim.toLocaleDateString('pt-BR')}. Obrigado!`;
+        msg.className = "msg-codigo sucesso";
+
+        document.querySelector('.divisor').querySelectorAll('.passo, #btnEmailComprovante, #campoCodigo, .btn-entrar').forEach(el => {
+            el.style.display = 'none';
+        });
+    }
+
+    function abrirAdmin(e) {
+        e.preventDefault();
+        const senha = prompt("Senha do painel admin:");
+        if (senha !== CONFIG.senhaAdmin) {
+            alert("Senha incorreta.");
+            return;
+        }
+        atualizarEstatisticasAdmin();
+        document.getElementById('painelAdmin').classList.add('aberto');
+    }
+
+    function fecharAdmin() {
+        document.getElementById('painelAdmin').classList.remove('aberto');
+    }
+
+    async function salvarNovoCodigo() {
+        const novo = document.getElementById('novoCodigoInput').value.trim().toUpperCase();
+        if (!novo) {
+            alert("Digite um código antes de salvar.");
+            return;
+        }
+        try {
+            const resp = await fetch(BACKEND_URL + '/admin/codigo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ senha: CONFIG.senhaAdmin, novoCodigo: novo }),
+            });
+            const dados = await resp.json();
+            if (dados.erro) throw new Error(dados.erro);
+
+            document.getElementById('codigoAtualExibido').textContent = dados.codigoAtual;
+            document.getElementById('novoCodigoInput').value = '';
+            alert("✅ Novo código salvo no servidor!");
+        } catch (erro) {
+            alert("⚠️ Não foi possível salvar o código.");
+        }
+    }
+
+    setInterval(() => {
+        document.querySelectorAll('.minutos:not(.chegando)').forEach(item => {
+            let texto = item.textContent.replace(' min', '').replace(' (atrasado)', '');
+            if (!isNaN(texto) && texto > 1) {
+                item.textContent = `${parseInt(texto) - 1} min${item.classList.contains('atrasado') ? ' (atrasado)' : ''}`;
+            }
+        });
+    }, 60000);
+
+    document.getElementById('busca')?.addEventListener('input', (e) => {
+        const termo = e.target.value.toLowerCase();
+        document.querySelectorAll('.cartao-linha').forEach(cartao => {
+            cartao.style.display = cartao.textContent.toLowerCase().includes(termo) ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('btnBuscarPontos')?.addEventListener('click', () => {
+        const lista = document.getElementById('listaPontos');
+
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            lista.innerHTML = '<p style="color:var(--vermelho); font-size:0.85rem;">⚠️ A API do Google Maps ainda não foi configurada.</p>';
+            return;
+        }
+        if (!navigator.geolocation) {
+            lista.innerHTML = '<p style="color:var(--vermelho); font-size:0.85rem;">Seu navegador não suporta localização.</p>';
+            return;
+        }
+
+        lista.innerHTML = '<p style="font-size:0.85rem; color:var(--cinza-texto); text-align:center;">⏳ Localizando...</p>';
+
+        navigator.geolocation.getCurrentPosition(
+            (posicao) => {
+                const localAtual = new google.maps.LatLng(posicao.coords.latitude, posicao.coords.longitude);
+                const mapaAuxiliar = new google.maps.Map(document.createElement('div'));
+                const servico = new google.maps.places.PlacesService(mapaAuxiliar);
+
+                servico.nearbySearch(
+                    { location: localAtual, radius: 1000, type: 'bus_station' },
+                    (resultados, status) => {
+                        if (status !== google.maps.places.PlacesServiceStatus.OK || !resultados.length) {
+                            lista.innerHTML = '<p style="font-size:0.85rem; color:var(--cinza-texto); text-align:center;">Nenhum ponto de ônibus encontrado num raio de 1km.</p>';
+                            return;
+                        }
+
+                        lista.innerHTML = '';
+                        resultados.slice(0, 6).forEach(local => {
+                            const distanciaMetros = google.maps.geometry && google.maps.geometry.spherical
+                                ? Math.round(google.maps.geometry.spherical.computeDistanceBetween(localAtual, local.geometry.location))
+                                : null;
+
+                            const div = document.createElement('div');
+                            div.className = 'ponto-proximo';
+                            div.innerHTML = `
+                                <span>🛑</span>
+                                <div class="nome-ponto">${local.name}</div>
+                                <div class="distancia">${distanciaMetros !== null ? distanciaMetros + 'm' : (local.vicinity || '')}</div>
+                            `;
+                            lista.appendChild(div);
+                        });
+                    }
+                );
+            },
+            () => {
+                lista.innerHTML = '<p style="color:var(--vermelho); font-size:0.85rem;">Não foi possível acessar sua localização.</p>';
+            }
+        );
+    });
+</script>
+</body>
+</html>
